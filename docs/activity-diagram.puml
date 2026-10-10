@@ -1,0 +1,80 @@
+@startuml MediCore_Consultation_and_Billing_Activity
+skinparam defaultFontName "Inter", "Segoe UI", sans-serif
+skinparam ActivityBackgroundColor #FFFFFF
+skinparam ActivityBorderColor #329BFA
+skinparam ArrowColor #1E293B
+
+title Clinical Consultation, Prescription & Billing Activity Flow
+
+start
+
+:Patient arrives for Confirmed Appointment;
+:Doctor reviews Patient Medical History;
+
+partition "Clinical Encounter (Doctor)" {
+  :Doctor starts consultation session;
+  :Doctor records vital signs, symptoms, and physical exam findings;
+  :Doctor establishes clinical diagnosis;
+  
+  if (Medication required?) then (yes)
+    :Open Prescription Composer;
+    repeat
+      :Enter medicine name, dosage, frequency, and duration;
+      :Add item to prescription list;
+    repeat while (More medications needed?) is (yes)
+    ->no;
+    :Attach special pharmacy instructions;
+  else (no)
+    :Record non-pharmacological care advice;
+  endif
+
+  if (Diagnostic laboratory test required?) then (yes)
+    :Order Lab Investigation (Pathology / Radiology);
+    :Lab Order status set to ORDERED;
+  else (no)
+  endif
+
+  :Doctor completes encounter and saves Medical Record;
+  :System marks Appointment as COMPLETED;
+  :System creates in-app notification for Patient;
+}
+
+partition "Diagnostic Investigation (Laboratory Staff)" {
+  if (Lab tests were ordered?) then (yes)
+    :Technician collects sample;
+    :Technician uploads certified test report (PDF/Image);
+    :System validates file type (MIME check) and size (<=10MB);
+    :System writes file to private storage with UUID name;
+    :Lab Report status updated to COMPLETED;
+    :Notification dispatched to Patient and Doctor;
+  else (no)
+  endif
+}
+
+partition "Hospital Billing & Settlement (Admin & Patient)" {
+  :Administrator generates Itemized Bill;
+  :Add consultation fee item;
+  :Add medication charges item;
+  :Add laboratory investigation charges item;
+  :System calculates subtotal, 5% hospital tax, and gross total;
+  :Bill persisted in UNPAID status;
+  :Patient receives Billing Notification;
+  
+  :Patient reviews Itemized Invoice breakdown;
+  :Patient selects payment method (Credit Card / UPI / NetBanking / Cash);
+  :Patient submits simulated payment transaction;
+  
+  if (Simulated authorization valid?) then (yes)
+    :System records Payment record with unique transaction reference;
+    :Bill status transitioned to PAID;
+    :System generates official paid tax receipt;
+    :Receipt available for immediate download / print;
+  else (no)
+    :System logs failed transaction;
+    :Bill remains in UNPAID status;
+  endif
+}
+
+stop
+
+@enduml

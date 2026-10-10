@@ -1,0 +1,62 @@
+@startuml MediCore_Appointment_Booking_Sequence
+autonumber
+skinparam defaultFontName "Inter", "Segoe UI", sans-serif
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Patient (Browser)" as Patient
+participant "React Frontend\n(Appointment Wizard)" as UI
+participant "API Gateway / Express\nAppointmentsController" as API
+participant "AppointmentsService" as Service
+database "Database (PostgreSQL / SQLite)\nPrisma ORM" as DB
+participant "NotificationService" as Notif
+
+== Step 1: Query Doctor Availability ==
+Patient -> UI: Select Doctor and Date (2026-10-15)
+UI -> API: GET /api/doctors/:id/availability?date=2026-10-15
+API -> Service: calculateAvailableSlots(doctorId, "2026-10-15")
+Service -> DB: Query DoctorSchedule for day of week
+DB --> Service: Shift: 09:00 - 17:00, Slot: 30m
+Service -> DB: Query Appointments WHERE doctorId & date & status != CANCELLED
+DB --> Service: Existing booked slots: ["10:00", "11:30"]
+Service --> API: Available slots array (e.g. 09:00, 09:30, 10:30, ...)
+API --> UI: HTTP 200 JSON { availableSlots: [...] }
+UI --> Patient: Render clickable time slot buttons
+
+== Step 2: Book Time Slot with Concurrency Guard ==
+Patient -> UI: Selects "10:30", enters reason, clicks "Confirm Booking"
+UI -> API: POST /api/appointments { doctorId, date, timeSlot: "10:30", reason }
+API -> Service: bookAppointment(patientId, doctorId, date, slot, reason)
+
+note over Service, DB #EBF5FF
+  <b>Atomic ACID Transaction Started</b>
+  Guarantees race-condition prevention
+end note
+
+Service -> DB: BEGIN TRANSACTION
+Service -> DB: SELECT * FROM appointments \nWHERE doctorId = :doc AND date = :date AND timeSlot = :slot \nAND status NOT IN ('CANCELLED', 'NO_SHOW') FOR UPDATE
+alt Slot is Already Booked (Race Condition Detected)
+  DB --> Service: Existing Appointment Found
+  Service -> DB: ROLLBACK
+  Service --> API: ConflictError("Slot already booked")
+  API --> UI: HTTP 409 Conflict { error: "Time slot already taken" }
+  UI --> Patient: Display alert: "Slot just booked by another patient. Pick another time."
+else Slot is Free
+  DB --> Service: No conflicting record
+  Service -> DB: INSERT INTO appointments \n(appointmentNumber, patientId, doctorId, date, timeSlot, status='CONFIRMED', reason)
+  DB --> Service: Created Appointment ID
+  Service -> DB: INSERT INTO audit_logs (actor, action='BOOK_APPOINTMENT', ...)
+  Service -> DB: COMMIT TRANSACTION
+  note over Service, DB #E6FFFA
+    <b>Transaction Committed Successfully</b>
+  end note
+  
+  Service -> Notif: createNotification(doctorId, "New appointment booked")
+  Service -> Notif: createNotification(patientId, "Appointment confirmed")
+  
+  Service --> API: Created Appointment DTO
+  API --> UI: HTTP 201 Created { appointment: {...} }
+  UI --> Patient: Display Success Modal & redirect to /patient/appointments
+end
+
+@enduml

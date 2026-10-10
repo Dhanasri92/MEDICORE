@@ -1,0 +1,98 @@
+@startuml MediCore_UseCase_Diagram
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam roundcorner 10
+skinparam defaultFontName "Inter", "Segoe UI", sans-serif
+
+actor "Patient" as Patient #329BFA
+actor "Doctor" as Doctor #10B981
+actor "Hospital Administrator" as Admin #F59E0B
+
+rectangle "MediCore Hospital Management System" {
+  
+  package "Authentication & Profile" {
+    usecase "UC-01: Register Patient Account" as UC01
+    usecase "UC-02: Authenticate (Login / Logout)" as UC02
+    usecase "UC-03: Manage Personal Profile" as UC03
+  }
+
+  package "Appointments & Scheduling" {
+    usecase "UC-04: Browse Doctors & Specializations" as UC04
+    usecase "UC-05: View Real-time Available Slots" as UC05
+    usecase "UC-06: Book Appointment (Conflict-Free)" as UC06
+    usecase "UC-07: Reschedule / Cancel Appointment" as UC07
+    usecase "UC-08: Manage Weekly Shift Availability" as UC08
+    usecase "UC-09: Update Appointment Status" as UC09
+  }
+
+  package "Clinical Encounters & Prescriptions" {
+    usecase "UC-10: Document Clinical Diagnosis & Notes" as UC10
+    usecase "UC-11: Author Itemized Prescription" as UC11
+    usecase "UC-12: View & Print Prescriptions" as UC12
+    usecase "UC-13: Access Patient Clinical History" as UC13
+  }
+
+  package "Laboratory Diagnostic Reports" {
+    usecase "UC-14: Upload & Ingest Lab Report File" as UC14
+    usecase "UC-15: Download Authorized Lab Report" as UC15
+    usecase "UC-16: Track Diagnostic Investigation Status" as UC16
+  }
+
+  package "Financial Billing & Invoices" {
+    usecase "UC-17: Generate Itemized Hospital Bill" as UC17
+    usecase "UC-18: Review Invoice & Line Items" as UC18
+    usecase "UC-19: Settle Invoice via Simulated Payment" as UC19
+    usecase "UC-20: Download Official Tax Receipt" as UC20
+  }
+
+  package "Hospital Administration & Operations" {
+    usecase "UC-21: Provision Physician Accounts" as UC21
+    usecase "UC-22: Manage Clinical Departments" as UC22
+    usecase "UC-23: View Real-Time Operational Analytics" as UC23
+    usecase "UC-24: Review Security & Audit Logs" as UC24
+    usecase "UC-25: Publish Hospital Operational Notices" as UC25
+  }
+}
+
+' Patient associations
+Patient --> UC01
+Patient --> UC02
+Patient --> UC03
+Patient --> UC04
+Patient --> UC05
+Patient --> UC06
+Patient --> UC07
+Patient --> UC12
+Patient --> UC15
+Patient --> UC18
+Patient --> UC19
+Patient --> UC20
+
+' Doctor associations
+Doctor --> UC02
+Doctor --> UC08
+Doctor --> UC09
+Doctor --> UC10
+Doctor --> UC11
+Doctor --> UC13
+Doctor --> UC15
+Doctor --> UC16
+
+' Admin associations
+Admin --> UC02
+Admin --> UC14
+Admin --> UC16
+Admin --> UC17
+Admin --> UC20
+Admin --> UC21
+Admin --> UC22
+Admin --> UC23
+Admin --> UC24
+Admin --> UC25
+
+' Includes & Extends
+UC06 ..> UC05 : <<include>>
+UC10 ..> UC11 : <<extend>>
+UC19 ..> UC20 : <<include>>
+
+@enduml
