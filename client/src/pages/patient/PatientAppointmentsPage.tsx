@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, Plus, XCircle, AlertCircle } from 'lucide-react';
 import { StatusBadge } from '../../components/common/StatusBadge.js';
 import { BookAppointmentModal } from '../../components/appointments/BookAppointmentModal.js';
+import { RescheduleAppointmentModal } from '../../components/appointments/RescheduleAppointmentModal.js';
 import { LoadingSpinner, EmptyState } from '../../components/common/EmptyState.js';
 import { api } from '../../api/client.js';
 import { Appointment } from '../../types/index.js';
@@ -12,6 +13,7 @@ export const PatientAppointmentsPage: React.FC = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isBookModalOpen, setIsBookModalOpen] = useState(false);
+  const [rescheduleAppt, setRescheduleAppt] = useState<Appointment | null>(null);
 
   const fetchAppointments = async () => {
     try {
@@ -105,12 +107,20 @@ export const PatientAppointmentsPage: React.FC = () => {
                     </td>
                     <td className="py-3.5 pr-2 text-right">
                       {appt.status === 'CONFIRMED' && (
-                        <button
-                          onClick={() => handleCancel(appt.id)}
-                          className="px-2.5 py-1 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
-                        >
-                          Cancel
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => setRescheduleAppt(appt)}
+                            className="px-2.5 py-1 text-xs font-bold text-[#329BFA] hover:bg-[#EBF5FE] rounded-xl transition-colors"
+                          >
+                            Reschedule
+                          </button>
+                          <button
+                            onClick={() => handleCancel(appt.id)}
+                            className="px-2.5 py-1 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -126,6 +136,13 @@ export const PatientAppointmentsPage: React.FC = () => {
         onClose={() => setIsBookModalOpen(false)}
         onSuccess={fetchAppointments}
         patientId={user?.patientId}
+      />
+
+      <RescheduleAppointmentModal
+        isOpen={!!rescheduleAppt}
+        onClose={() => setRescheduleAppt(null)}
+        onSuccess={fetchAppointments}
+        appointment={rescheduleAppt}
       />
     </div>
   );

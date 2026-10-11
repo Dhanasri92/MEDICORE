@@ -43,6 +43,13 @@ export async function createMedicalRecordWithPrescription(params: {
     throw error;
   }
 
+  // Check appointment status
+  if (appointment.status === 'CANCELLED') {
+    const error: any = new Error('Cannot document clinical consultation for a cancelled appointment.');
+    error.statusCode = 400;
+    throw error;
+  }
+
   // Check if medical record already exists
   const existingRecord = await prisma.medicalRecord.findUnique({
     where: { appointmentId: params.appointmentId },

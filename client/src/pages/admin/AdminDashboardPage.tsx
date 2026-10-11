@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Stethoscope,
   Users,
@@ -20,6 +21,7 @@ import { api } from '../../api/client.js';
 import { Appointment, Doctor, HospitalNotice } from '../../types/index.js';
 
 export const AdminDashboardPage: React.FC = () => {
+  const navigate = useNavigate();
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState('May 2021');
@@ -53,37 +55,37 @@ export const AdminDashboardPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* 1. Top 4 Summary Cards (Direct match to MediKit screenshot) */}
+      {/* 1. Top 4 Summary Cards (Derived from real DB metrics) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard
           icon={Stethoscope}
-          value={summary.doctors ?? '2937'}
+          value={summary.doctors ?? 0}
           label="Doctors"
-          trendText="3 Doctors joined this week"
+          trendText="Active medical specialists"
           theme="teal"
         />
 
         <SummaryCard
           icon={Users}
-          value={summary.staffs ?? '5453'}
+          value={summary.staffs ?? 0}
           label="Staffs"
-          trendText="8 Staffs on vacation"
+          trendText="Clinical & administration staff"
           theme="amber"
         />
 
         <SummaryCard
           icon={Users}
-          value={summary.patients ? `${summary.patients}K` : '170K'}
+          value={summary.patients ?? 0}
           label="Patients"
-          trendText="175 New patients admitted"
+          trendText="Registered hospital patients"
           theme="pink"
         />
 
         <SummaryCard
           icon={Package}
-          value={summary.pharmacies ?? '21'}
-          label="Pharmacies"
-          trendText="85k Medicine on reserve"
+          value={`$${(summary.totalRevenue || 0).toLocaleString()}`}
+          label="Collected Revenue"
+          trendText={`$${(summary.outstandingBills || 0).toLocaleString()} pending`}
           theme="blue"
         />
       </div>
@@ -206,7 +208,10 @@ export const AdminDashboardPage: React.FC = () => {
         <div className="card-base p-6 flex flex-col justify-between">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-bold text-[#171B22]">Hospital Report</h3>
-            <button className="text-xs font-semibold text-[#9298A1] hover:text-[#329BFA]">
+            <button
+              onClick={() => navigate('/admin/notices')}
+              className="text-xs font-semibold text-[#9298A1] hover:text-[#329BFA]"
+            >
               View All
             </button>
           </div>
@@ -301,7 +306,10 @@ export const AdminDashboardPage: React.FC = () => {
         <div className="card-base p-6 lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-bold text-[#171B22]">Online Appointment</h3>
-            <button className="text-xs font-semibold text-[#9298A1] hover:text-[#329BFA]">
+            <button
+              onClick={() => navigate('/admin/appointments')}
+              className="text-xs font-semibold text-[#9298A1] hover:text-[#329BFA]"
+            >
               View All
             </button>
           </div>
@@ -361,12 +369,27 @@ export const AdminDashboardPage: React.FC = () => {
                         </td>
                         <td className="py-3.5 pr-2 text-right">
                           <div className="inline-flex items-center gap-2 text-[#9298A1]">
-                            <button className="p-1 hover:text-[#329BFA] transition-colors">
-                              <Edit2 className="w-3.5 h-3.5 text-rose-400" />
+                            <button
+                              onClick={() => navigate('/admin/appointments')}
+                              title="Manage appointment"
+                              className="p-1 hover:text-[#329BFA] transition-colors"
+                            >
+                              <Edit2 className="w-3.5 h-3.5 text-blue-500" />
                             </button>
-                            <button className="p-1 hover:text-rose-600 transition-colors">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            {appt.status !== 'CANCELLED' && (
+                              <button
+                                onClick={async () => {
+                                  if (window.confirm(`Cancel appointment ${appt.appointmentNumber}?`)) {
+                                    await api.post(`/appointments/${appt.id}/cancel`, { cancellationReason: 'Admin cancellation' });
+                                    fetchDashboardData();
+                                  }
+                                }}
+                                title="Cancel appointment"
+                                className="p-1 hover:text-rose-600 transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

@@ -16,3 +16,10 @@ export const updateAppointmentStatusSchema = z.object({
 export const cancelAppointmentSchema = z.object({
   cancellationReason: z.string().optional(),
 });
+
+export const rescheduleAppointmentSchema = z.object({
+  appointmentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
+  timeSlot: z.string().regex(/^\d{2}:\d{2}$/, 'Time slot must be in HH:MM format'),
+  reason: z.string().optional(),
+});
+

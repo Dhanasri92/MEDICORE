@@ -29,6 +29,8 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
       token = authHeader.split(' ')[1];
     } else if (req.cookies && req.cookies.medicore_token) {
       token = req.cookies.medicore_token;
+    } else if (req.query && typeof req.query.token === 'string') {
+      token = req.query.token;
     }
 
     if (!token) {
@@ -86,6 +88,8 @@ export function optionalAuthenticate(req: Request, res: Response, next: NextFunc
       token = authHeader.split(' ')[1];
     } else if (req.cookies && req.cookies.medicore_token) {
       token = req.cookies.medicore_token;
+    } else if (req.query && typeof req.query.token === 'string') {
+      token = req.query.token;
     }
 
     if (!token) {

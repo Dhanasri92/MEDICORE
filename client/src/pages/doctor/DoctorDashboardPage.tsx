@@ -130,7 +130,7 @@ export const DoctorDashboardPage: React.FC = () => {
                       <StatusBadge status={appt.status} size="sm" />
                     </td>
                     <td className="py-3.5 pr-2 text-right">
-                      {appt.status !== 'COMPLETED' ? (
+                      {appt.status === 'CONFIRMED' || appt.status === 'PENDING' ? (
                         <button
                           onClick={() => {
                             setSelectedAppointment(appt);
@@ -141,10 +141,14 @@ export const DoctorDashboardPage: React.FC = () => {
                           <Stethoscope className="w-3.5 h-3.5" />
                           <span>Start Consultation</span>
                         </button>
-                      ) : (
+                      ) : appt.status === 'COMPLETED' ? (
                         <span className="text-[11px] font-semibold text-emerald-600 flex items-center justify-end gap-1">
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           <span>Encounter Saved</span>
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-semibold text-rose-500">
+                          {appt.status}
                         </span>
                       )}
                     </td>

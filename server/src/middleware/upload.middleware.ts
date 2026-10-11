@@ -35,7 +35,9 @@ const fileFilter = (
   if (allowedMimeTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Invalid file type. Only PDF, PNG, and JPEG formats are permitted for laboratory reports.'));
+    const err: any = new Error('Invalid file type. Only PDF, PNG, and JPEG formats are permitted for laboratory reports.');
+    err.statusCode = 400;
+    cb(err);
   }
 };
 

@@ -5,6 +5,7 @@ import {
   bookAppointmentSchema,
   updateAppointmentStatusSchema,
   cancelAppointmentSchema,
+  rescheduleAppointmentSchema,
 } from './appointment.schema.js';
 import { authenticate } from '../../middleware/auth.middleware.js';
 import { requireRole } from '../../middleware/role.middleware.js';
@@ -272,3 +273,26 @@ appointmentRouter.post('/:id/cancel', authenticate, async (req: Request, res: Re
     next(error);
   }
 });
+
+// PATCH /api/appointments/:id/reschedule
+appointmentRouter.patch('/:id/reschedule', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+    const validated = rescheduleAppointmentSchema.parse(req.body);
+    const result = await appointmentService.rescheduleAppointment({
+      appointmentId: id,
+      newDate: validated.appointmentDate,
+      newSlot: validated.timeSlot,
+      reason: validated.reason,
+      actorUserId: req.user!.userId,
+      actorRole: req.user!.role,
+      actorPatientId: req.user!.patientId,
+      actorDoctorId: req.user!.doctorId,
+    });
+
+    res.json({ success: true, message: 'Appointment rescheduled successfully.', data: result });
+  } catch (error) {
+    next(error);
+  }
+});
+

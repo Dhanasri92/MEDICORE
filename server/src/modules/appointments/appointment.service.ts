@@ -200,3 +200,120 @@ export async function cancelAppointment(params: {
 
   return updated;
 }
+
+export async function rescheduleAppointment(params: {
+  appointmentId: string;
+  newDate: string;
+  newSlot: string;
+  reason?: string;
+  actorUserId: string;
+  actorRole: string;
+  actorPatientId?: string;
+  actorDoctorId?: string;
+}) {
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: params.appointmentId },
+    include: {
+      patient: { include: { user: true } },
+      doctor: { include: { user: true } },
+    },
+  });
+
+  if (!appointment) {
+    const error: any = new Error('Appointment not found.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Security check: Only owning patient, assigned doctor, or admin can reschedule
+  if (params.actorRole === 'PATIENT' && appointment.patientId !== params.actorPatientId) {
+    const error: any = new Error('Forbidden: You can only reschedule your own appointments.');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  if (params.actorRole === 'DOCTOR' && appointment.doctorId !== params.actorDoctorId) {
+    const error: any = new Error('Forbidden: You can only manage appointments assigned to you.');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  if (appointment.status === 'CANCELLED') {
+    const error: any = new Error('Cancelled appointments cannot be rescheduled.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (appointment.status === 'COMPLETED') {
+    const error: any = new Error('Completed appointments cannot be rescheduled.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Atomic conflict check & reschedule update
+  const updated = await prisma.$transaction(async (tx) => {
+    // Check if new slot is taken by another appointment
+    const conflict = await tx.appointment.findFirst({
+      where: {
+        doctorId: appointment.doctorId,
+        appointmentDate: params.newDate,
+        timeSlot: params.newSlot,
+        id: { not: appointment.id },
+        status: { notIn: ['CANCELLED', 'NO_SHOW'] },
+      },
+    });
+
+    if (conflict) {
+      const error: any = new Error(
+        `This time slot (${params.newSlot}) on ${params.newDate} is already booked. Please choose an alternate slot.`
+      );
+      error.statusCode = 409;
+      throw error;
+    }
+
+    return await tx.appointment.update({
+      where: { id: appointment.id },
+      data: {
+        appointmentDate: params.newDate,
+        timeSlot: params.newSlot,
+        status: 'CONFIRMED',
+        ...(params.reason ? { reasonForVisit: params.reason } : {}),
+      },
+      include: {
+        patient: { include: { user: true } },
+        doctor: { include: { user: true, department: true } },
+      },
+    });
+  });
+
+  await logAuditEvent({
+    userId: params.actorUserId,
+    userRole: params.actorRole,
+    action: 'RESCHEDULE_APPOINTMENT',
+    entity: 'Appointment',
+    entityId: appointment.id,
+    details: `Appointment ${appointment.appointmentNumber} rescheduled from ${appointment.appointmentDate} ${appointment.timeSlot} to ${params.newDate} ${params.newSlot}`,
+  });
+
+  // Notify opposite party
+  if (params.actorRole === 'PATIENT') {
+    await createNotification({
+      userId: appointment.doctor.userId,
+      title: 'Appointment Rescheduled',
+      message: `Appointment ${appointment.appointmentNumber} was rescheduled to ${params.newDate} at ${params.newSlot} by patient ${appointment.patient.user.lastName}.`,
+      type: 'APPOINTMENT',
+      linkUrl: '/doctor/appointments',
+    });
+  } else {
+    await createNotification({
+      userId: appointment.patient.userId,
+      title: 'Appointment Rescheduled',
+      message: `Your appointment ${appointment.appointmentNumber} has been rescheduled to ${params.newDate} at ${params.newSlot}.`,
+      type: 'APPOINTMENT',
+      linkUrl: '/patient/appointments',
+    });
+  }
+
+  return updated;
+}
+

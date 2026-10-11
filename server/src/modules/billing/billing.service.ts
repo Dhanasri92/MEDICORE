@@ -127,10 +127,40 @@ export async function processSimulatedPayment(params: {
   const transactionRef = `TXN-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
   const result = await prisma.$transaction(async (tx) => {
+    // Re-query within transaction to prevent race conditions and duplicate payments
+    const txBill = await tx.bill.findUnique({
+      where: { id: params.billId },
+      include: {
+        patient: { include: { user: true } },
+        payments: true,
+      },
+    });
+
+    if (!txBill) {
+      const error: any = new Error('Invoice not found.');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (txBill.status === 'PAID') {
+      const error: any = new Error('This invoice has already been fully settled.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const txOutstanding = Number((txBill.totalAmount - txBill.paidAmount).toFixed(2));
+    if (params.amount > txOutstanding) {
+      const error: any = new Error(
+        `Payment amount ($${params.amount}) exceeds outstanding balance of $${txOutstanding}.`
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
     // 1. Create payment entry
     const payment = await tx.payment.create({
       data: {
-        billId: bill.id,
+        billId: txBill.id,
         transactionRef,
         amount: params.amount,
         paymentMethod: params.paymentMethod,
@@ -140,11 +170,11 @@ export async function processSimulatedPayment(params: {
     });
 
     // 2. Update bill paid amount and status
-    const newPaidAmount = Number((bill.paidAmount + params.amount).toFixed(2));
-    const newStatus = newPaidAmount >= bill.totalAmount ? 'PAID' : 'PARTIALLY_PAID';
+    const newPaidAmount = Number((txBill.paidAmount + params.amount).toFixed(2));
+    const newStatus = newPaidAmount >= txBill.totalAmount ? 'PAID' : 'PARTIALLY_PAID';
 
     const updatedBill = await tx.bill.update({
-      where: { id: bill.id },
+      where: { id: txBill.id },
       data: {
         paidAmount: newPaidAmount,
         status: newStatus,
@@ -155,7 +185,7 @@ export async function processSimulatedPayment(params: {
       },
     });
 
-    return { payment, bill: updatedBill };
+    return { payment, bill: updatedBill, patientUserId: txBill.patient.userId, billNumber: txBill.billNumber };
   });
 
   await logAuditEvent({
